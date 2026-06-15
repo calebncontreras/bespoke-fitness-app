@@ -67,3 +67,16 @@ export interface SignupForm {
   cvc: string;
   membershipType: string;
 }
+
+export type PaymentMethodType = 'Cash' | 'Zelle' | 'Stripe';
+
+export interface PaymentTransaction {
+  id: number;
+  memberId: number;
+  memberName: string;
+  amount: number;
+  method: PaymentMethodType;
+  reference: string;
+  date: string;
+  membershipTypeId: string;
+}

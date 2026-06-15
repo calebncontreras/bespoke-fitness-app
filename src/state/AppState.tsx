@@ -8,6 +8,8 @@ import type {
   NewMemberForm,
   NewMembershipTypeForm,
   SignupForm,
+  PaymentTransaction,
+  PaymentMethodType,
 } from '../types';
 
 interface AppStateContextType {
@@ -52,6 +54,9 @@ interface AppStateContextType {
   handleSignUp: (classId: number, useCredit?: boolean) => void;
   handleCancel: (classId: number) => void;
   logout: () => void;
+  payments: PaymentTransaction[];
+  setPayments: React.Dispatch<React.SetStateAction<PaymentTransaction[]>>;
+  handleRecordPayment: (memberId: number, amount: number, method: PaymentMethodType, reference: string, date: string) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -88,6 +93,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [adminTab, setAdminTab] = useState('dashboard');
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [signupForm, setSignupForm] = useState<SignupForm>({ name: '', email: '', cardNumber: '', expiry: '', cvc: '', membershipType: '1x/week' });
+  const [payments, setPayments] = useState<PaymentTransaction[]>([
+    { id: 1, memberId: 1, memberName: 'John Doe', amount: 29, method: 'Zelle', reference: 'ZL-28374', date: '2026-06-01', membershipTypeId: '1x/week' },
+    { id: 2, memberId: 2, memberName: 'Jane Smith', amount: 49, method: 'Cash', reference: '', date: '2025-05-30', membershipTypeId: '2x/week' },
+  ]);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -251,6 +260,40 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ));
   };
 
+  const handleRecordPayment = (
+    memberId: number,
+    amount: number,
+    method: PaymentMethodType,
+    reference: string,
+    date: string,
+  ) => {
+    const member = members.find(m => m.id === memberId);
+    if (!member) return;
+    const memberType = membershipTypes.find(t => t.id === member.membershipType);
+    const tx: PaymentTransaction = {
+      id: Date.now(),
+      memberId,
+      memberName: member.name,
+      amount,
+      method,
+      reference,
+      date,
+      membershipTypeId: member.membershipType,
+    };
+    setPayments(prev => [tx, ...prev]);
+    const base = new Date(
+      Math.max(new Date(date + 'T12:00:00').getTime(), new Date(member.membershipExpiry + 'T12:00:00').getTime())
+    );
+    if (memberType?.durationDays) {
+      base.setDate(base.getDate() + memberType.durationDays);
+    } else {
+      base.setMonth(base.getMonth() + 1);
+    }
+    setMembers(prev =>
+      prev.map(m => m.id === memberId ? { ...m, membershipExpiry: base.toISOString().split('T')[0] } : m)
+    );
+  };
+
   const logout = () => {
     setCurrentUser(null);
     setView('login');
@@ -288,6 +331,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       handleSignUp,
       handleCancel,
       logout,
+      payments, setPayments,
+      handleRecordPayment,
     }}>
       {children}
     </AppStateContext.Provider>
