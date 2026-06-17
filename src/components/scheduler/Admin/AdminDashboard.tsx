@@ -4,9 +4,11 @@ import { useAppState } from '../../../state/AppState';
 import AdminClasses from './AdminClasses';
 import AdminMembers from './AdminMembers';
 import AdminMembershipTypes from './AdminMembershipTypes';
+import AdminTrainers from './AdminTrainers';
+import AdminSessions from './AdminSessions';
 
 const AdminDashboard: React.FC = () => {
-  const { members, classes, adminTab, setAdminTab, isMembershipValid, logout } = useAppState();
+  const { members, classes, adminTab, setAdminTab, isMembershipValid, logout, personalSessions, trainers } = useAppState();
 
   return (
     <div className="min-h-screen bg-white">
@@ -18,13 +20,13 @@ const AdminDashboard: React.FC = () => {
           </button>
         </div>
         <div className="flex border-b border-gray-200">
-          {['dashboard', 'classes', 'members', 'membership-types'].map(tab => (
+          {['dashboard', 'classes', 'members', 'membership-types', 'trainers', 'sessions'].map(tab => (
             <button
               key={tab}
               onClick={() => setAdminTab(tab)}
               className={`px-6 py-4 font-light text-sm border-b-2 transition ${adminTab === tab ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
             >
-              {tab === 'membership-types' ? 'Membership Types' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'membership-types' ? 'Membership Types' : tab === 'sessions' ? '1-on-1 Sessions' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -35,6 +37,8 @@ const AdminDashboard: React.FC = () => {
                 ['Total Classes', classes.length],
                 ['Total Members', members.length],
                 ['Overdue Memberships', members.filter(m => !isMembershipValid(m.id)).length],
+                ['Trainers', trainers.length],
+                ['Pending 1-on-1s', personalSessions.filter(s => s.status === 'pending').length],
               ].map(([label, val]) => (
                 <div key={label} className="p-6 bg-gray-50 border border-gray-200">
                   <div className="text-sm text-gray-600 font-light mb-2">{label}</div>
@@ -46,6 +50,8 @@ const AdminDashboard: React.FC = () => {
           {adminTab === 'classes' && <AdminClasses />}
           {adminTab === 'members' && <AdminMembers />}
           {adminTab === 'membership-types' && <AdminMembershipTypes />}
+          {adminTab === 'trainers' && <AdminTrainers />}
+          {adminTab === 'sessions' && <AdminSessions />}
         </div>
       </div>
     </div>

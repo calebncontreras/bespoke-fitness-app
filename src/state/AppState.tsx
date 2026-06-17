@@ -10,6 +10,9 @@ import type {
   SignupForm,
   PaymentTransaction,
   PaymentMethodType,
+  Trainer,
+  PersonalSession,
+  SessionStatus,
 } from '../types';
 
 interface AppStateContextType {
@@ -57,6 +60,14 @@ interface AppStateContextType {
   payments: PaymentTransaction[];
   setPayments: React.Dispatch<React.SetStateAction<PaymentTransaction[]>>;
   handleRecordPayment: (memberId: number, amount: number, method: PaymentMethodType, reference: string, date: string) => void;
+  trainers: Trainer[];
+  setTrainers: React.Dispatch<React.SetStateAction<Trainer[]>>;
+  personalSessions: PersonalSession[];
+  setPersonalSessions: React.Dispatch<React.SetStateAction<PersonalSession[]>>;
+  handleAddTrainer: (name: string, specialty: string) => void;
+  handleDeleteTrainer: (id: number) => void;
+  handleBookSession: (trainerId: number, date: string, time: string, duration: number, notes: string) => void;
+  handleUpdateSessionStatus: (id: number, status: SessionStatus) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -97,6 +108,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     { id: 1, memberId: 1, memberName: 'John Doe', amount: 29, method: 'Zelle', reference: 'ZL-28374', date: '2026-06-01', membershipTypeId: '1x/week' },
     { id: 2, memberId: 2, memberName: 'Jane Smith', amount: 49, method: 'Cash', reference: '', date: '2025-05-30', membershipTypeId: '2x/week' },
   ]);
+  const [trainers, setTrainers] = useState<Trainer[]>([
+    { id: 1, name: 'Sarah', specialty: 'Yoga & Flexibility' },
+    { id: 2, name: 'Mike', specialty: 'Strength & Conditioning' },
+  ]);
+  const [personalSessions, setPersonalSessions] = useState<PersonalSession[]>([]);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -294,6 +310,35 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
+  const handleAddTrainer = (name: string, specialty: string) => {
+    if (!name.trim()) return;
+    setTrainers(prev => [...prev, { id: Date.now(), name: name.trim(), specialty: specialty.trim() }]);
+  };
+
+  const handleDeleteTrainer = (id: number) => {
+    setTrainers(prev => prev.filter(t => t.id !== id));
+  };
+
+  const handleBookSession = (trainerId: number, date: string, time: string, duration: number, notes: string) => {
+    if (!isMember(currentUser)) return;
+    const session: PersonalSession = {
+      id: Date.now(),
+      trainerId,
+      memberId: currentUser.id,
+      memberName: currentUser.name,
+      date,
+      time,
+      duration,
+      status: 'pending',
+      notes,
+    };
+    setPersonalSessions(prev => [session, ...prev]);
+  };
+
+  const handleUpdateSessionStatus = (id: number, status: SessionStatus) => {
+    setPersonalSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+  };
+
   const logout = () => {
     setCurrentUser(null);
     setView('login');
@@ -333,6 +378,12 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       logout,
       payments, setPayments,
       handleRecordPayment,
+      trainers, setTrainers,
+      personalSessions, setPersonalSessions,
+      handleAddTrainer,
+      handleDeleteTrainer,
+      handleBookSession,
+      handleUpdateSessionStatus,
     }}>
       {children}
     </AppStateContext.Provider>

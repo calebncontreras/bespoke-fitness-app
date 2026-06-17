@@ -1,7 +1,132 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { useAppState } from '../../state/AppState';
 import type { Member } from '../../types';
+
+const SESSION_DURATIONS = [30, 45, 60];
+
+const PersonalBookingPanel: React.FC = () => {
+  const { trainers, personalSessions, handleBookSession, currentUser } = useAppState();
+  const member = currentUser as Member;
+  const [selectedTrainer, setSelectedTrainer] = useState<number | null>(null);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [duration, setDuration] = useState(60);
+  const [notes, setNotes] = useState('');
+  const [booked, setBooked] = useState(false);
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const onBook = () => {
+    if (!selectedTrainer || !date || !time) return;
+    handleBookSession(selectedTrainer, date, time, duration, notes);
+    setSelectedTrainer(null);
+    setDate('');
+    setTime('');
+    setNotes('');
+    setBooked(true);
+    setTimeout(() => setBooked(false), 3000);
+  };
+
+  const mySessions = personalSessions.filter(s => s.memberId === member.id);
+
+  return (
+    <div className="p-6 space-y-8">
+      <div className="border border-gray-200 p-6">
+        <h3 className="text-sm font-light text-gray-600 uppercase tracking-widest mb-4">Book a Session</h3>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-xs text-gray-500 font-light mb-1">Trainer</label>
+            <select
+              value={selectedTrainer ?? ''}
+              onChange={e => setSelectedTrainer(Number(e.target.value))}
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            >
+              <option value="">Select trainer</option>
+              {trainers.map(t => (
+                <option key={t.id} value={t.id}>{t.name} — {t.specialty}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 font-light mb-1">Duration</label>
+            <select
+              value={duration}
+              onChange={e => setDuration(Number(e.target.value))}
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            >
+              {SESSION_DURATIONS.map(d => (
+                <option key={d} value={d}>{d} min</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 font-light mb-1">Date</label>
+            <input
+              type="date"
+              min={today}
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 font-light mb-1">Time</label>
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            />
+          </div>
+        </div>
+        <div className="mb-4">
+          <label className="block text-xs text-gray-500 font-light mb-1">Notes (optional)</label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Goals, injuries, preferences..."
+            className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400 resize-none"
+          />
+        </div>
+        <button
+          onClick={onBook}
+          disabled={!selectedTrainer || !date || !time}
+          className="px-4 py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+        >
+          Request Session
+        </button>
+        {booked && <span className="ml-3 text-sm text-green-600 font-light">Session request sent — pending trainer confirmation.</span>}
+      </div>
+
+      <div>
+        <h3 className="text-sm font-light text-gray-600 uppercase tracking-widest mb-3">My 1-on-1 Sessions</h3>
+        {mySessions.length === 0
+          ? <p className="text-gray-500 font-light text-sm">No sessions booked yet.</p>
+          : (
+            <div className="space-y-3">
+              {mySessions.map(s => {
+                const trainer = trainers.find(t => t.id === s.trainerId);
+                const statusColor = s.status === 'confirmed' ? 'text-green-700' : s.status === 'cancelled' ? 'text-gray-400' : 'text-yellow-600';
+                return (
+                  <div key={s.id} className="border border-gray-200 p-4 flex justify-between items-start">
+                    <div>
+                      <div className="font-light text-gray-900">with {trainer?.name ?? 'Unknown'}</div>
+                      <div className="text-sm text-gray-500 font-light">{s.date} at {s.time} · {s.duration} min</div>
+                      {s.notes && <div className="text-xs text-gray-400 font-light mt-1">{s.notes}</div>}
+                    </div>
+                    <span className={`text-xs font-light capitalize ${statusColor}`}>{s.status}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        }
+      </div>
+    </div>
+  );
+};
 
 const Booking: React.FC = () => {
   const {
@@ -9,6 +134,7 @@ const Booking: React.FC = () => {
     getAvailableSpots, isSignedUp, getClassesRemaining, getTrialDaysRemaining,
     handleSignUp, handleCancel, logout,
   } = useAppState();
+  const [bookingTab, setBookingTab] = useState<'classes' | '1on1'>('classes');
 
   const member = currentUser as Member;
 
@@ -17,7 +143,9 @@ const Booking: React.FC = () => {
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center px-6 py-8 border-b border-gray-200">
           <div>
-            <h1 className="text-3xl font-light text-gray-900">Available Classes</h1>
+            <h1 className="text-3xl font-light text-gray-900">
+              {bookingTab === 'classes' ? 'Available Classes' : '1-on-1 Sessions'}
+            </h1>
             <p className="text-sm text-gray-600 font-light mt-1">{member.name}</p>
           </div>
           <div className="flex flex-col items-end gap-4">
@@ -36,7 +164,21 @@ const Booking: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        <div className="flex border-b border-gray-200">
+          {([['classes', 'Group Classes'], ['1on1', '1-on-1 Sessions']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setBookingTab(id)}
+              className={`px-6 py-3 text-sm font-light border-b-2 transition ${bookingTab === id ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-900'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {bookingTab === '1on1' && <PersonalBookingPanel />}
+
+        {bookingTab === 'classes' && <><div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
           {classes.map(c => (
             <div key={c.id} className="border border-gray-200 p-6">
               <h3 className="text-lg font-light text-gray-900 mb-3">{c.name}</h3>
@@ -109,6 +251,7 @@ const Booking: React.FC = () => {
               : <p className="text-gray-500 font-light">No bookings yet</p>}
           </div>
         </div>
+        </>}
       </div>
     </div>
   );

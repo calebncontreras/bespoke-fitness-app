@@ -80,3 +80,23 @@ export interface PaymentTransaction {
   date: string;
   membershipTypeId: string;
 }
+
+export interface Trainer {
+  id: number;
+  name: string;
+  specialty: string;
+}
+
+export type SessionStatus = 'pending' | 'confirmed' | 'cancelled';
+
+export interface PersonalSession {
+  id: number;
+  trainerId: number;
+  memberId: number;
+  memberName: string;
+  date: string;
+  time: string;
+  duration: number;
+  status: SessionStatus;
+  notes: string;
+}
