@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import type {
   Member,
+  TrainerUser,
   CurrentUser,
   Class,
   MembershipType,
@@ -10,7 +11,6 @@ import type {
   SignupForm,
   PaymentTransaction,
   PaymentMethodType,
-  Trainer,
   PersonalSession,
   SessionStatus,
 } from '../types';
@@ -44,7 +44,7 @@ interface AppStateContextType {
   getTrialDaysRemaining: () => number | null;
   getAvailableSpots: (c: Class) => number;
   isSignedUp: (classId: number) => boolean;
-  handleAdminLogin: () => void;
+  handleTrainerLogin: () => void;
   handleMemberLogin: (memberId: number) => void;
   handleSignup: () => void;
   handleAddClass: () => void;
@@ -60,13 +60,9 @@ interface AppStateContextType {
   payments: PaymentTransaction[];
   setPayments: React.Dispatch<React.SetStateAction<PaymentTransaction[]>>;
   handleRecordPayment: (memberId: number, amount: number, method: PaymentMethodType, reference: string, date: string) => void;
-  trainers: Trainer[];
-  setTrainers: React.Dispatch<React.SetStateAction<Trainer[]>>;
   personalSessions: PersonalSession[];
   setPersonalSessions: React.Dispatch<React.SetStateAction<PersonalSession[]>>;
-  handleAddTrainer: (name: string, specialty: string) => void;
-  handleDeleteTrainer: (id: number) => void;
-  handleBookSession: (trainerId: number, date: string, time: string, duration: number, notes: string) => void;
+  handleBookSession: (date: string, time: string, duration: number, notes: string) => void;
   handleUpdateSessionStatus: (id: number, status: SessionStatus) => void;
 }
 
@@ -107,10 +103,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [payments, setPayments] = useState<PaymentTransaction[]>([
     { id: 1, memberId: 1, memberName: 'John Doe', amount: 29, method: 'Zelle', reference: 'ZL-28374', date: '2026-06-01', membershipTypeId: '1x/week' },
     { id: 2, memberId: 2, memberName: 'Jane Smith', amount: 49, method: 'Cash', reference: '', date: '2025-05-30', membershipTypeId: '2x/week' },
-  ]);
-  const [trainers, setTrainers] = useState<Trainer[]>([
-    { id: 1, name: 'Sarah', specialty: 'Yoga & Flexibility' },
-    { id: 2, name: 'Mike', specialty: 'Strength & Conditioning' },
   ]);
   const [personalSessions, setPersonalSessions] = useState<PersonalSession[]>([]);
 
@@ -168,9 +160,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return classes.find(c => c.id === classId)?.signups.includes(currentUser.id) ?? false;
   };
 
-  const handleAdminLogin = () => {
-    setCurrentUser({ id: 'admin', name: 'Admin', role: 'admin' });
-    setView('adminDashboard');
+  const handleTrainerLogin = () => {
+    const trainer: TrainerUser = { id: 'trainer', name: 'Trainer', role: 'trainer' };
+    setCurrentUser(trainer);
+    setView('trainerDashboard');
   };
 
   const handleMemberLogin = (memberId: number) => {
@@ -310,20 +303,10 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const handleAddTrainer = (name: string, specialty: string) => {
-    if (!name.trim()) return;
-    setTrainers(prev => [...prev, { id: Date.now(), name: name.trim(), specialty: specialty.trim() }]);
-  };
-
-  const handleDeleteTrainer = (id: number) => {
-    setTrainers(prev => prev.filter(t => t.id !== id));
-  };
-
-  const handleBookSession = (trainerId: number, date: string, time: string, duration: number, notes: string) => {
+  const handleBookSession = (date: string, time: string, duration: number, notes: string) => {
     if (!isMember(currentUser)) return;
     const session: PersonalSession = {
       id: Date.now(),
-      trainerId,
       memberId: currentUser.id,
       memberName: currentUser.name,
       date,
@@ -363,7 +346,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       getTrialDaysRemaining,
       getAvailableSpots,
       isSignedUp,
-      handleAdminLogin,
+      handleTrainerLogin,
       handleMemberLogin,
       handleSignup,
       handleAddClass,
@@ -378,10 +361,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       logout,
       payments, setPayments,
       handleRecordPayment,
-      trainers, setTrainers,
       personalSessions, setPersonalSessions,
-      handleAddTrainer,
-      handleDeleteTrainer,
       handleBookSession,
       handleUpdateSessionStatus,
     }}>

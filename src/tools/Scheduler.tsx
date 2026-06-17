@@ -4,7 +4,7 @@ import Login from '../components/scheduler/Login';
 import Signup from '../components/scheduler/Signup';
 import Booking from '../components/scheduler/Booking';
 import Payment from '../components/scheduler/Payment';
-import AdminDashboard from '../components/scheduler/Admin/AdminDashboard';
+import TrainerDashboard from '../components/scheduler/Admin/AdminDashboard';
 
 const Scheduler: React.FC = () => {
   const { view } = useAppState();
@@ -12,7 +12,7 @@ const Scheduler: React.FC = () => {
   if (view === 'signup') return <Signup />;
   if (view === 'payment') return <Payment />;
   if (view === 'booking') return <Booking />;
-  if (view === 'adminDashboard') return <AdminDashboard />;
+  if (view === 'trainerDashboard') return <TrainerDashboard />;
   return null;
 };
 

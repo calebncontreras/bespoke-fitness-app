@@ -3,12 +3,30 @@ import { ChevronRight, LogOut } from 'lucide-react';
 import { useAppState } from '../../state/AppState';
 import type { Member } from '../../types';
 
-const SESSION_DURATIONS = [30, 45, 60];
+const SESSION_DURATIONS = [30, 60];
+
+function buildSessionTimes(): string[] {
+  const times: string[] = [];
+  for (let h = 6; h <= 21; h++) {
+    for (const m of [0, 30]) {
+      if (h === 21 && m > 0) break;
+      times.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+  return times;
+}
+const SESSION_TIMES = buildSessionTimes();
+
+function fmt12(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
 
 const PersonalBookingPanel: React.FC = () => {
-  const { trainers, personalSessions, handleBookSession, currentUser } = useAppState();
+  const { personalSessions, handleBookSession, currentUser } = useAppState();
   const member = currentUser as Member;
-  const [selectedTrainer, setSelectedTrainer] = useState<number | null>(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState(60);
@@ -18,9 +36,8 @@ const PersonalBookingPanel: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   const onBook = () => {
-    if (!selectedTrainer || !date || !time) return;
-    handleBookSession(selectedTrainer, date, time, duration, notes);
-    setSelectedTrainer(null);
+    if (!date || !time) return;
+    handleBookSession(date, time, duration, notes);
     setDate('');
     setTime('');
     setNotes('');
@@ -33,18 +50,28 @@ const PersonalBookingPanel: React.FC = () => {
   return (
     <div className="p-6 space-y-8">
       <div className="border border-gray-200 p-6">
-        <h3 className="text-sm font-light text-gray-600 uppercase tracking-widest mb-4">Book a Session</h3>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <h3 className="text-sm font-light text-gray-600 uppercase tracking-widest mb-4">Request a Session</h3>
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="block text-xs text-gray-500 font-light mb-1">Trainer</label>
+            <label className="block text-xs text-gray-500 font-light mb-1">Date</label>
+            <input
+              type="date"
+              min={today}
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 font-light mb-1">Time</label>
             <select
-              value={selectedTrainer ?? ''}
-              onChange={e => setSelectedTrainer(Number(e.target.value))}
+              value={time}
+              onChange={e => setTime(e.target.value)}
               className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
             >
-              <option value="">Select trainer</option>
-              {trainers.map(t => (
-                <option key={t.id} value={t.id}>{t.name} — {t.specialty}</option>
+              <option value="">Select time</option>
+              {SESSION_TIMES.map(t => (
+                <option key={t} value={t}>{fmt12(t)}</option>
               ))}
             </select>
           </div>
@@ -60,25 +87,6 @@ const PersonalBookingPanel: React.FC = () => {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 font-light mb-1">Date</label>
-            <input
-              type="date"
-              min={today}
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 font-light mb-1">Time</label>
-            <input
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
-            />
-          </div>
         </div>
         <div className="mb-4">
           <label className="block text-xs text-gray-500 font-light mb-1">Notes (optional)</label>
@@ -92,12 +100,12 @@ const PersonalBookingPanel: React.FC = () => {
         </div>
         <button
           onClick={onBook}
-          disabled={!selectedTrainer || !date || !time}
+          disabled={!date || !time}
           className="px-4 py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition"
         >
           Request Session
         </button>
-        {booked && <span className="ml-3 text-sm text-green-600 font-light">Session request sent — pending trainer confirmation.</span>}
+        {booked && <span className="ml-3 text-sm text-green-600 font-light">Request sent — your trainer will confirm shortly.</span>}
       </div>
 
       <div>
@@ -107,13 +115,11 @@ const PersonalBookingPanel: React.FC = () => {
           : (
             <div className="space-y-3">
               {mySessions.map(s => {
-                const trainer = trainers.find(t => t.id === s.trainerId);
                 const statusColor = s.status === 'confirmed' ? 'text-green-700' : s.status === 'cancelled' ? 'text-gray-400' : 'text-yellow-600';
                 return (
                   <div key={s.id} className="border border-gray-200 p-4 flex justify-between items-start">
                     <div>
-                      <div className="font-light text-gray-900">with {trainer?.name ?? 'Unknown'}</div>
-                      <div className="text-sm text-gray-500 font-light">{s.date} at {s.time} · {s.duration} min</div>
+                      <div className="text-sm text-gray-500 font-light">{s.date} at {fmt12(s.time)} · {s.duration} min</div>
                       {s.notes && <div className="text-xs text-gray-400 font-light mt-1">{s.notes}</div>}
                     </div>
                     <span className={`text-xs font-light capitalize ${statusColor}`}>{s.status}</span>

@@ -8,13 +8,13 @@ export interface Member {
   googleCalendarEnabled: boolean;
 }
 
-export interface AdminUser {
-  id: 'admin';
+export interface TrainerUser {
+  id: 'trainer';
   name: string;
-  role: 'admin';
+  role: 'trainer';
 }
 
-export type CurrentUser = Member | AdminUser;
+export type CurrentUser = Member | TrainerUser;
 
 export interface Class {
   id: number;
@@ -81,17 +81,10 @@ export interface PaymentTransaction {
   membershipTypeId: string;
 }
 
-export interface Trainer {
-  id: number;
-  name: string;
-  specialty: string;
-}
-
 export type SessionStatus = 'pending' | 'confirmed' | 'cancelled';
 
 export interface PersonalSession {
   id: number;
-  trainerId: number;
   memberId: number;
   memberName: string;
   date: string;

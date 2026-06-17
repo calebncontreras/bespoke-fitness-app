@@ -15,10 +15,8 @@ const STATUS_COLORS: Record<SessionStatus, string> = {
 };
 
 const AdminSessions: React.FC = () => {
-  const { personalSessions, trainers, handleUpdateSessionStatus } = useAppState();
+  const { personalSessions, handleUpdateSessionStatus } = useAppState();
   const [filter, setFilter] = useState<SessionStatus | 'all'>('all');
-
-  const trainerName = (id: number) => trainers.find(t => t.id === id)?.name ?? 'Unknown';
 
   const visible = filter === 'all'
     ? personalSessions
@@ -49,7 +47,7 @@ const AdminSessions: React.FC = () => {
               <div>
                 <div className="font-light text-gray-900">{s.memberName}</div>
                 <div className="text-sm text-gray-500 font-light">
-                  with {trainerName(s.trainerId)} · {s.date} at {s.time} · {s.duration} min
+                  {s.date} at {s.time} · {s.duration} min
                 </div>
                 {s.notes && <div className="text-xs text-gray-400 font-light mt-1">{s.notes}</div>}
               </div>
@@ -69,7 +67,7 @@ const AdminSessions: React.FC = () => {
                   onClick={() => handleUpdateSessionStatus(s.id, 'cancelled')}
                   className="px-3 py-1 border border-gray-300 text-gray-600 text-xs font-light hover:bg-gray-50 transition"
                 >
-                  Cancel
+                  Decline
                 </button>
               </div>
             )}
