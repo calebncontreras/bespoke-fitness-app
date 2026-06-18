@@ -21,23 +21,23 @@ const AppInner: React.FC = () => {
     if (!currentUser) setTool('scheduler');
   }, [currentUser]);
 
-  const visibleNav = currentUser ? NAV : NAV.slice(0, 1);
-
   return (
     <div className="min-h-screen bg-white">
       <div className="border-b border-gray-100 px-6 py-2.5 flex items-center gap-4">
         <span className="text-xs font-light tracking-widest text-gray-300 uppercase">Bespoke</span>
-        <div className="flex gap-1">
-          {visibleNav.map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setTool(id)}
-              className={`px-3 py-1 text-xs rounded transition-colors ${tool === id ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-700'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {currentUser && (
+          <div className="flex gap-1">
+            {NAV.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => setTool(id)}
+                className={`px-3 py-1 text-xs rounded transition-colors ${tool === id ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-700'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {tool === 'scheduler' && <Scheduler />}
       {tool === 'schedule' && <ScheduleView />}
