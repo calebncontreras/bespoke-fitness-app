@@ -156,17 +156,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setAuthLoading(false);
     };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        handleAuthUser(session.user);
-      } else {
-        setAuthLoading(false);
-      }
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+      if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         handleAuthUser(session.user);
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
         setView('login');

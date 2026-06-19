@@ -31,8 +31,14 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       await handleMagicLink(clientEmail);
-    } catch {
-      setClientError('Something went wrong. Please try again.');
+    } catch (err) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : typeof err === 'object' && err !== null && 'message' in err && typeof (err as Record<string, unknown>).message === 'string'
+          ? ((err as Record<string, unknown>).message as string) || JSON.stringify(err)
+          : 'Something went wrong. Please try again.';
+      setClientError(msg);
     }
     setLoading(false);
   };
