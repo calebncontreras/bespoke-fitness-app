@@ -1,11 +1,12 @@
 export interface Member {
-  id: number;
+  id: string;
   name: string;
   email: string;
   membershipExpiry: string;
   membershipType: string;
   classCredits: number;
   googleCalendarEnabled: boolean;
+  trialUsed?: boolean;
 }
 
 export interface TrainerUser {
@@ -24,7 +25,7 @@ export interface Class {
   instructor: string;
   location: string;
   capacity: number;
-  signups: number[];
+  signups: string[];
 }
 
 export interface MembershipType {
@@ -72,7 +73,7 @@ export type PaymentMethodType = 'Cash' | 'Zelle' | 'Stripe';
 
 export interface PaymentTransaction {
   id: number;
-  memberId: number;
+  memberId: string;
   memberName: string;
   amount: number;
   method: PaymentMethodType;
@@ -85,11 +86,27 @@ export type SessionStatus = 'pending' | 'confirmed' | 'cancelled';
 
 export interface PersonalSession {
   id: number;
-  memberId: number;
+  memberId: string;
   memberName: string;
   date: string;
   time: string;
   duration: number;
   status: SessionStatus;
   notes: string;
+}
+
+export interface FeedComment {
+  id: number;
+  memberId: string;
+  memberName: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface FeedPost {
+  id: number;
+  content: string;
+  createdAt: string;
+  likes: string[];
+  comments: FeedComment[];
 }

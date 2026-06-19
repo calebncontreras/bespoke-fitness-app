@@ -5,7 +5,7 @@ import PaymentHistory from './PaymentHistory';
 
 const PaymentDashboard: React.FC = () => {
   const { members, payments, isMembershipValid } = useAppState();
-  const [quickPayMemberId, setQuickPayMemberId] = useState<number | null>(null);
+  const [quickPayMemberId, setQuickPayMemberId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'record' | 'history'>('overview');
 
   const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -14,7 +14,7 @@ const PaymentDashboard: React.FC = () => {
   const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
   const recent = payments.slice(0, 5);
 
-  const handleQuickPay = (memberId: number) => {
+  const handleQuickPay = (memberId: string) => {
     setQuickPayMemberId(memberId);
     setActiveTab('record');
   };
@@ -135,7 +135,7 @@ const PaymentDashboard: React.FC = () => {
       {activeTab === 'record' && (
         <div className="max-w-md">
           <PaymentForm
-            key={quickPayMemberId ?? -1}
+            key={quickPayMemberId ?? ''}
             defaultMemberId={quickPayMemberId ?? undefined}
             onSuccess={() => {
               setQuickPayMemberId(null);

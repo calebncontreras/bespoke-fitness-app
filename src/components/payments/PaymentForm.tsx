@@ -4,15 +4,15 @@ import PaymentMethod from './PaymentMethod';
 import type { PaymentMethodType } from '../../types';
 
 interface PaymentFormProps {
-  defaultMemberId?: number;
+  defaultMemberId?: string;
   onSuccess?: () => void;
 }
 
 const PaymentForm: React.FC<PaymentFormProps> = ({ defaultMemberId, onSuccess }) => {
   const { members, membershipTypes, handleRecordPayment } = useAppState();
 
-  const initialMemberId = defaultMemberId ?? members[0]?.id ?? 0;
-  const [memberId, setMemberId] = useState<number>(initialMemberId);
+  const initialMemberId = defaultMemberId ?? members[0]?.id ?? '';
+  const [memberId, setMemberId] = useState<string>(initialMemberId);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethodType | null>(null);
   const [reference, setReference] = useState('');
@@ -50,7 +50,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ defaultMemberId, onSuccess })
         <label className="block text-xs font-light text-gray-400 mb-1.5 uppercase tracking-wide">Member</label>
         <select
           value={memberId}
-          onChange={e => setMemberId(Number(e.target.value))}
+          onChange={e => setMemberId(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 font-light text-sm"
         >
           {members.map(m => (

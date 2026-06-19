@@ -5,6 +5,7 @@ import AdminClasses from './AdminClasses';
 import AdminMembers from './AdminMembers';
 import AdminMembershipTypes from './AdminMembershipTypes';
 import AdminSessions from './AdminSessions';
+import TrainerFeed from '../../feed/TrainerFeed';
 
 const AdminDashboard: React.FC = () => {
   const { members, classes, adminTab, setAdminTab, isMembershipValid, logout, personalSessions } = useAppState();
@@ -19,13 +20,13 @@ const AdminDashboard: React.FC = () => {
           </button>
         </div>
         <div className="flex border-b border-gray-200">
-          {['dashboard', 'classes', 'clients', 'membership-types', 'sessions'].map(tab => (
+          {['dashboard', 'classes', 'clients', 'membership-types', 'sessions', 'feed'].map(tab => (
             <button
               key={tab}
               onClick={() => setAdminTab(tab)}
               className={`px-6 py-4 font-light text-sm border-b-2 transition ${adminTab === tab ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-600 hover:text-gray-900'}`}
             >
-              {tab === 'membership-types' ? 'Membership Types' : tab === 'sessions' ? '1-on-1 Sessions' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'membership-types' ? 'Membership Types' : tab === 'sessions' ? '1-on-1 Sessions' : tab === 'feed' ? 'Feed' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
@@ -49,6 +50,7 @@ const AdminDashboard: React.FC = () => {
           {adminTab === 'clients' && <AdminMembers />}
           {adminTab === 'membership-types' && <AdminMembershipTypes />}
           {adminTab === 'sessions' && <AdminSessions />}
+          {adminTab === 'feed' && <TrainerFeed />}
         </div>
       </div>
     </div>

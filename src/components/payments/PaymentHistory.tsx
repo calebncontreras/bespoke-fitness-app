@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppState } from '../../state/AppState';
 
 interface PaymentHistoryProps {
-  filterMemberId?: number;
+  filterMemberId?: string;
 }
 
 const PaymentHistory: React.FC<PaymentHistoryProps> = ({ filterMemberId }) => {
@@ -13,7 +13,7 @@ const PaymentHistory: React.FC<PaymentHistoryProps> = ({ filterMemberId }) => {
 
   const filtered = payments.filter(p => {
     if (filterMemberId !== undefined && p.memberId !== filterMemberId) return false;
-    if (selectedMember && p.memberId !== Number(selectedMember)) return false;
+    if (selectedMember && p.memberId !== selectedMember) return false;
     if (fromDate && p.date < fromDate) return false;
     if (toDate && p.date > toDate) return false;
     return true;

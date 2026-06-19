@@ -1,18 +1,19 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import type {
   Member,
-  TrainerUser,
   CurrentUser,
   Class,
   MembershipType,
   NewClassForm,
   NewMemberForm,
   NewMembershipTypeForm,
-  SignupForm,
   PaymentTransaction,
   PaymentMethodType,
   PersonalSession,
   SessionStatus,
+  FeedPost,
 } from '../types';
 
 interface AppStateContextType {
@@ -20,6 +21,8 @@ interface AppStateContextType {
   setView: React.Dispatch<React.SetStateAction<string>>;
   currentUser: CurrentUser | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser | null>>;
+  authLoading: boolean;
+  magicLinkSent: boolean;
   members: Member[];
   setMembers: React.Dispatch<React.SetStateAction<Member[]>>;
   membershipTypes: MembershipType[];
@@ -36,34 +39,37 @@ interface AppStateContextType {
   setAdminTab: React.Dispatch<React.SetStateAction<string>>;
   editingMember: Member | null;
   setEditingMember: React.Dispatch<React.SetStateAction<Member | null>>;
-  signupForm: SignupForm;
-  setSignupForm: React.Dispatch<React.SetStateAction<SignupForm>>;
   days: string[];
-  isMembershipValid: (memberId: number) => boolean;
+  isMembershipValid: (memberId: string) => boolean;
   getClassesRemaining: () => number;
   getTrialDaysRemaining: () => number | null;
   getAvailableSpots: (c: Class) => number;
   isSignedUp: (classId: number) => boolean;
-  handleTrainerLogin: () => void;
-  handleMemberLogin: (memberId: number) => void;
-  handleSignup: () => void;
+  handleTrainerLogin: (email: string, password: string) => Promise<void>;
+  handleMagicLink: (email: string) => Promise<void>;
+  handleCreateMemberProfile: (name: string) => Promise<void>;
   handleAddClass: () => void;
   handleDeleteClass: (id: number) => void;
   handleAddMember: () => void;
   handleAddMembershipType: () => void;
   handleEditMember: (m: Member) => void;
   handleSaveMember: () => void;
-  handleAddCredit: (memberId: number) => void;
+  handleAddCredit: (memberId: string) => void;
   handleSignUp: (classId: number, useCredit?: boolean) => void;
   handleCancel: (classId: number) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   payments: PaymentTransaction[];
   setPayments: React.Dispatch<React.SetStateAction<PaymentTransaction[]>>;
-  handleRecordPayment: (memberId: number, amount: number, method: PaymentMethodType, reference: string, date: string) => void;
+  handleRecordPayment: (memberId: string, amount: number, method: PaymentMethodType, reference: string, date: string) => void;
   personalSessions: PersonalSession[];
   setPersonalSessions: React.Dispatch<React.SetStateAction<PersonalSession[]>>;
   handleBookSession: (date: string, time: string, duration: number, notes: string) => void;
   handleUpdateSessionStatus: (id: number, status: SessionStatus) => void;
+  feedPosts: FeedPost[];
+  handleCreatePost: (content: string) => void;
+  handleDeletePost: (id: number) => void;
+  handleLikePost: (postId: number) => void;
+  handleAddComment: (postId: number, text: string) => void;
 }
 
 const AppStateContext = createContext<AppStateContextType | null>(null);
@@ -80,35 +86,142 @@ const isMember = (user: CurrentUser | null): user is Member =>
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [view, setView] = useState('login');
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [members, setMembers] = useState<Member[]>([
-    { id: 1, name: 'John Doe', email: 'john@example.com', membershipExpiry: '2026-12-31', membershipType: '1x/week', classCredits: 1, googleCalendarEnabled: false },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', membershipExpiry: '2025-06-30', membershipType: '2x/week', classCredits: 0, googleCalendarEnabled: false },
-  ]);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+
+  const [members, setMembers] = useState<Member[]>([]);
   const [membershipTypes, setMembershipTypes] = useState<MembershipType[]>([
     { id: '1x/week', name: '1x/Week', price: 29, classesPerWeek: 1 },
     { id: '2x/week', name: '2x/Week', price: 49, classesPerWeek: 2 },
     { id: '3x/week', name: '3x/Week', price: 79, classesPerWeek: 3 },
-    { id: 'trial', name: 'Trial Week', price: 0, classesPerWeek: 999, durationDays: 7 },
   ]);
   const [classes, setClasses] = useState<Class[]>([
-    { id: 1, name: 'Yoga', day: 'Monday', time: '10:00', instructor: 'Sarah', location: 'Room A', capacity: 15, signups: [1] },
-    { id: 2, name: 'Pilates', day: 'Wednesday', time: '14:00', instructor: 'Mike', location: 'Room B', capacity: 12, signups: [2] },
+    { id: 1, name: 'Yoga', day: 'Monday', time: '10:00', instructor: 'Sarah', location: 'Room A', capacity: 15, signups: [] },
+    { id: 2, name: 'Pilates', day: 'Wednesday', time: '14:00', instructor: 'Mike', location: 'Room B', capacity: 12, signups: [] },
   ]);
   const [newClass, setNewClass] = useState<NewClassForm>({ name: '', day: '', time: '', instructor: '', location: '', capacity: 10 });
   const [newMember, setNewMember] = useState<NewMemberForm>({ name: '', email: '', membershipExpiry: '', membershipType: '1x/week', classCredits: 0 });
   const [newMembershipType, setNewMembershipType] = useState<NewMembershipTypeForm>({ name: '', price: '', classesPerWeek: '', durationDays: '' });
   const [adminTab, setAdminTab] = useState('dashboard');
   const [editingMember, setEditingMember] = useState<Member | null>(null);
-  const [signupForm, setSignupForm] = useState<SignupForm>({ name: '', email: '', cardNumber: '', expiry: '', cvc: '', membershipType: '1x/week' });
-  const [payments, setPayments] = useState<PaymentTransaction[]>([
-    { id: 1, memberId: 1, memberName: 'John Doe', amount: 29, method: 'Zelle', reference: 'ZL-28374', date: '2026-06-01', membershipTypeId: '1x/week' },
-    { id: 2, memberId: 2, memberName: 'Jane Smith', amount: 49, method: 'Cash', reference: '', date: '2025-05-30', membershipTypeId: '2x/week' },
-  ]);
+  const [payments, setPayments] = useState<PaymentTransaction[]>([]);
   const [personalSessions, setPersonalSessions] = useState<PersonalSession[]>([]);
+  const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-  const isMembershipValid = (memberId: number): boolean => {
+  // ── Auth ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleAuthUser = async (user: User) => {
+      setAuthLoading(true);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, name')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role === 'trainer') {
+        setCurrentUser({ id: 'trainer', name: profile.name || 'Trainer', role: 'trainer' });
+        setView('trainerDashboard');
+        setAuthLoading(false);
+        return;
+      }
+
+      if (profile?.role === 'member') {
+        const { data: member } = await supabase
+          .from('members')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (member) {
+          setCurrentUser({
+            id: user.id,
+            name: member.name,
+            email: user.email ?? '',
+            membershipType: member.membership_type ?? '',
+            membershipExpiry: member.membership_expiry ?? '',
+            classCredits: member.class_credits ?? 0,
+            googleCalendarEnabled: member.google_calendar_enabled ?? false,
+            trialUsed: member.trial_used ?? false,
+          });
+          setView('booking');
+          setAuthLoading(false);
+          return;
+        }
+      }
+
+      // No profile yet — new client
+      setView('onboarding');
+      setAuthLoading(false);
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        handleAuthUser(session.user);
+      } else {
+        setAuthLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        handleAuthUser(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setView('login');
+        setMagicLinkSent(false);
+        setAuthLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleTrainerLogin = async (email: string, password: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const handleMagicLink = async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) throw error;
+    setMagicLinkSent(true);
+  };
+
+  const handleCreateMemberProfile = async (name: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !name.trim()) return;
+
+    await supabase.from('profiles').insert({ id: user.id, role: 'member', name: name.trim() });
+    await supabase.from('members').insert({
+      id: user.id,
+      name: name.trim(),
+      email: user.email,
+      trial_used: false,
+    });
+
+    setCurrentUser({
+      id: user.id,
+      name: name.trim(),
+      email: user.email ?? '',
+      membershipType: '',
+      membershipExpiry: '',
+      classCredits: 0,
+      googleCalendarEnabled: false,
+      trialUsed: false,
+    });
+  };
+
+  const logout = async (): Promise<void> => {
+    await supabase.auth.signOut();
+  };
+
+  // ── Membership ───────────────────────────────────────────────────
+  const isMembershipValid = (memberId: string): boolean => {
     const member = members.find(m => m.id === memberId);
     if (!member) return false;
     return new Date(member.membershipExpiry) > new Date();
@@ -160,48 +273,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return classes.find(c => c.id === classId)?.signups.includes(currentUser.id) ?? false;
   };
 
-  const handleTrainerLogin = () => {
-    const trainer: TrainerUser = { id: 'trainer', name: 'Trainer', role: 'trainer' };
-    setCurrentUser(trainer);
-    setView('trainerDashboard');
-  };
-
-  const handleMemberLogin = (memberId: number) => {
-    const member = members.find(m => m.id === memberId);
-    if (member && isMembershipValid(memberId)) {
-      setCurrentUser(member);
-      setView('booking');
-    }
-  };
-
-  const handleSignup = () => {
-    if (!signupForm.name || !signupForm.email || !signupForm.cardNumber || !signupForm.expiry || !signupForm.cvc) {
-      alert('Please fill in all fields');
-      return;
-    }
-    const expiryDate = new Date();
-    const memberType = membershipTypes.find(m => m.id === signupForm.membershipType);
-    if (memberType?.durationDays) {
-      expiryDate.setDate(expiryDate.getDate() + memberType.durationDays);
-    } else {
-      expiryDate.setMonth(expiryDate.getMonth() + 1);
-    }
-    const newMemberObj: Member = {
-      id: Date.now(),
-      name: signupForm.name,
-      email: signupForm.email,
-      membershipExpiry: expiryDate.toISOString().split('T')[0],
-      membershipType: signupForm.membershipType,
-      classCredits: 1,
-      googleCalendarEnabled: false,
-    };
-    setMembers(prev => [...prev, newMemberObj]);
-    setCurrentUser(newMemberObj);
-    setSignupForm({ name: '', email: '', cardNumber: '', expiry: '', cvc: '', membershipType: '1x/week' });
-    setView('booking');
-    alert('Welcome! Your account has been created with 1 free class credit.');
-  };
-
+  // ── Classes ──────────────────────────────────────────────────────
   const handleAddClass = () => {
     if (newClass.name && newClass.day && newClass.time) {
       setClasses(prev => [...prev, { ...newClass, id: Date.now(), capacity: parseInt(String(newClass.capacity)), signups: [] }]);
@@ -211,9 +283,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const handleDeleteClass = (id: number) => setClasses(prev => prev.filter(c => c.id !== id));
 
+  // ── Members ──────────────────────────────────────────────────────
   const handleAddMember = () => {
     if (newMember.name && newMember.email && newMember.membershipExpiry) {
-      setMembers(prev => [...prev, { ...newMember, id: Date.now(), classCredits: parseInt(String(newMember.classCredits)) || 0, googleCalendarEnabled: false }]);
+      setMembers(prev => [...prev, {
+        ...newMember,
+        id: String(Date.now()),
+        classCredits: parseInt(String(newMember.classCredits)) || 0,
+        googleCalendarEnabled: false,
+      }]);
       setNewMember({ name: '', email: '', membershipExpiry: '', membershipType: '1x/week', classCredits: 0 });
     }
   };
@@ -239,7 +317,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setEditingMember(null);
   };
 
-  const handleAddCredit = (memberId: number) => {
+  const handleAddCredit = (memberId: string) => {
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, classCredits: (parseInt(String(m.classCredits)) || 0) + 1 } : m));
   };
 
@@ -269,51 +347,30 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ));
   };
 
-  const handleRecordPayment = (
-    memberId: number,
-    amount: number,
-    method: PaymentMethodType,
-    reference: string,
-    date: string,
-  ) => {
+  // ── Payments ─────────────────────────────────────────────────────
+  const handleRecordPayment = (memberId: string, amount: number, method: PaymentMethodType, reference: string, date: string) => {
     const member = members.find(m => m.id === memberId);
     if (!member) return;
     const memberType = membershipTypes.find(t => t.id === member.membershipType);
     const tx: PaymentTransaction = {
-      id: Date.now(),
-      memberId,
-      memberName: member.name,
-      amount,
-      method,
-      reference,
-      date,
-      membershipTypeId: member.membershipType,
+      id: Date.now(), memberId, memberName: member.name, amount, method, reference, date, membershipTypeId: member.membershipType,
     };
     setPayments(prev => [tx, ...prev]);
-    const base = new Date(
-      Math.max(new Date(date + 'T12:00:00').getTime(), new Date(member.membershipExpiry + 'T12:00:00').getTime())
-    );
-    if (memberType?.durationDays) {
-      base.setDate(base.getDate() + memberType.durationDays);
-    } else {
-      base.setMonth(base.getMonth() + 1);
-    }
-    setMembers(prev =>
-      prev.map(m => m.id === memberId ? { ...m, membershipExpiry: base.toISOString().split('T')[0] } : m)
-    );
+    const base = new Date(Math.max(
+      new Date(date + 'T12:00:00').getTime(),
+      new Date((member.membershipExpiry || date) + 'T12:00:00').getTime()
+    ));
+    if (memberType?.durationDays) base.setDate(base.getDate() + memberType.durationDays);
+    else base.setMonth(base.getMonth() + 1);
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, membershipExpiry: base.toISOString().split('T')[0] } : m));
   };
 
+  // ── Sessions ─────────────────────────────────────────────────────
   const handleBookSession = (date: string, time: string, duration: number, notes: string) => {
     if (!isMember(currentUser)) return;
     const session: PersonalSession = {
-      id: Date.now(),
-      memberId: currentUser.id,
-      memberName: currentUser.name,
-      date,
-      time,
-      duration,
-      status: 'pending',
-      notes,
+      id: Date.now(), memberId: currentUser.id, memberName: currentUser.name,
+      date, time, duration, status: 'pending', notes,
     };
     setPersonalSessions(prev => [session, ...prev]);
   };
@@ -322,15 +379,35 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setPersonalSessions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
   };
 
-  const logout = () => {
-    setCurrentUser(null);
-    setView('login');
+  // ── Feed ─────────────────────────────────────────────────────────
+  const handleCreatePost = (content: string) => {
+    const post: FeedPost = { id: Date.now(), content, createdAt: new Date().toISOString(), likes: [], comments: [] };
+    setFeedPosts(prev => [post, ...prev]);
+  };
+
+  const handleDeletePost = (id: number) => setFeedPosts(prev => prev.filter(p => p.id !== id));
+
+  const handleLikePost = (postId: number) => {
+    if (!isMember(currentUser)) return;
+    const memberId = currentUser.id;
+    setFeedPosts(prev => prev.map(p => {
+      if (p.id !== postId) return p;
+      const liked = p.likes.includes(memberId);
+      return { ...p, likes: liked ? p.likes.filter(id => id !== memberId) : [...p.likes, memberId] };
+    }));
+  };
+
+  const handleAddComment = (postId: number, text: string) => {
+    if (!isMember(currentUser) || !text.trim()) return;
+    const comment = { id: Date.now(), memberId: currentUser.id, memberName: currentUser.name, text: text.trim(), createdAt: new Date().toISOString() };
+    setFeedPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [...p.comments, comment] } : p));
   };
 
   return (
     <AppStateContext.Provider value={{
       view, setView,
       currentUser, setCurrentUser,
+      authLoading, magicLinkSent,
       members, setMembers,
       membershipTypes, setMembershipTypes,
       classes, setClasses,
@@ -339,7 +416,6 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       newMembershipType, setNewMembershipType,
       adminTab, setAdminTab,
       editingMember, setEditingMember,
-      signupForm, setSignupForm,
       days,
       isMembershipValid,
       getClassesRemaining,
@@ -347,8 +423,8 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       getAvailableSpots,
       isSignedUp,
       handleTrainerLogin,
-      handleMemberLogin,
-      handleSignup,
+      handleMagicLink,
+      handleCreateMemberProfile,
       handleAddClass,
       handleDeleteClass,
       handleAddMember,
@@ -364,6 +440,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       personalSessions, setPersonalSessions,
       handleBookSession,
       handleUpdateSessionStatus,
+      feedPosts,
+      handleCreatePost,
+      handleDeletePost,
+      handleLikePost,
+      handleAddComment,
     }}>
       {children}
     </AppStateContext.Provider>

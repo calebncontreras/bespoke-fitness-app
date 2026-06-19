@@ -4,6 +4,7 @@ import { useAppState } from './state/AppState';
 import Scheduler from './tools/Scheduler';
 import ScheduleView from './tools/ScheduleView';
 import Payments from './tools/Payments';
+import FeedSidebar from './components/feed/FeedSidebar';
 
 type Tool = 'scheduler' | 'schedule' | 'payments';
 
@@ -21,9 +22,19 @@ const AppInner: React.FC = () => {
     if (!currentUser) setTool('scheduler');
   }, [currentUser]);
 
+  const isMemberUser = !!currentUser && !('role' in currentUser);
+
+  const content = (
+    <>
+      {tool === 'scheduler' && <Scheduler />}
+      {tool === 'schedule' && <ScheduleView />}
+      {tool === 'payments' && <Payments />}
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="border-b border-gray-100 px-6 py-2.5 flex items-center gap-4">
+    <div className="h-screen flex flex-col bg-white">
+      <div className="border-b border-gray-100 px-6 py-2.5 flex items-center gap-4 shrink-0">
         <span className="text-xs font-light tracking-widest text-gray-300 uppercase">Bespoke</span>
         {currentUser && (
           <div className="flex gap-1">
@@ -39,9 +50,21 @@ const AppInner: React.FC = () => {
           </div>
         )}
       </div>
-      {tool === 'scheduler' && <Scheduler />}
-      {tool === 'schedule' && <ScheduleView />}
-      {tool === 'payments' && <Payments />}
+
+      {isMemberUser ? (
+        <div className="flex flex-1 min-h-0">
+          <aside className="w-64 border-r border-gray-100 shrink-0 overflow-y-auto">
+            <FeedSidebar />
+          </aside>
+          <div className="flex-1 overflow-y-auto">
+            {content}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto">
+          {content}
+        </div>
+      )}
     </div>
   );
 };
