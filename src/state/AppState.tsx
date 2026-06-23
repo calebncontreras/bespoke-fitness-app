@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type {
@@ -111,9 +111,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   // ── Auth ─────────────────────────────────────────────────────────
+  const authResolved = useRef(false);
+
   useEffect(() => {
     const handleAuthUser = async (user: User) => {
-      setAuthLoading(true);
+      if (!authResolved.current) setAuthLoading(true);
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, name')
@@ -123,6 +125,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (profile?.role === 'trainer') {
         setCurrentUser({ id: 'trainer', name: profile.name || 'Trainer', role: 'trainer' });
         setView('trainerDashboard');
+        authResolved.current = true;
         setAuthLoading(false);
         return;
       }
@@ -146,6 +149,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             trialUsed: member.trial_used ?? false,
           });
           setView('booking');
+          authResolved.current = true;
           setAuthLoading(false);
           return;
         }
@@ -153,6 +157,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // No profile yet — new client
       setView('onboarding');
+      authResolved.current = true;
       setAuthLoading(false);
     };
 
@@ -162,6 +167,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } else if (event === 'INITIAL_SESSION' && !session) {
         setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
+        authResolved.current = false;
         setCurrentUser(null);
         setView('login');
         setMagicLinkSent(false);
