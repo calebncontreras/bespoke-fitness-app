@@ -86,12 +86,31 @@ const AdminDocuments: React.FC = () => {
     const sub = submissions.find(s => s.id === submissionId);
     if (sub) {
       try {
+        let notifyStatus = status;
+
+        if (status === 'approved') {
+          const [{ data: requiredDocs }, { data: approvedDocs }] = await Promise.all([
+            supabase.from('documents').select('id').eq('required', true),
+            supabase.from('member_documents')
+              .select('document_id')
+              .eq('member_id', sub.member_id)
+              .eq('status', 'approved'),
+          ]);
+          // Include the doc we just approved (DB may not reflect it yet)
+          const approvedIds = new Set([
+            ...(approvedDocs?.map(a => a.document_id) ?? []),
+            sub.document_id,
+          ]);
+          const allApproved = requiredDocs?.every(d => approvedIds.has(d.id));
+          if (allApproved) notifyStatus = 'all_approved' as typeof status;
+        }
+
         await supabase.functions.invoke('notify-client', {
           body: {
             clientEmail: sub.members.email,
             clientName: sub.members.name,
             documentName: sub.documents.name,
-            status,
+            status: notifyStatus,
           },
         });
       } catch {

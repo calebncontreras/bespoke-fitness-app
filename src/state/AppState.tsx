@@ -48,6 +48,7 @@ interface AppStateContextType {
   handleTrainerLogin: (email: string, password: string) => Promise<void>;
   handleMagicLink: (email: string) => Promise<void>;
   handleCreateMemberProfile: (name: string) => Promise<void>;
+  checkAccessStatus: () => Promise<void>;
   handleAddClass: () => void;
   handleDeleteClass: (id: number) => void;
   handleAddMember: () => void;
@@ -148,7 +149,22 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             googleCalendarEnabled: member.google_calendar_enabled ?? false,
             trialUsed: member.trial_used ?? false,
           });
-          setView('booking');
+
+          const [{ data: requiredDocs }, { data: approvedDocs }] = await Promise.all([
+            supabase.from('documents').select('id').eq('required', true),
+            supabase.from('member_documents').select('document_id').eq('member_id', user.id).eq('status', 'approved'),
+          ]);
+          const allDocsApproved = !requiredDocs?.length ||
+            requiredDocs.every(doc => approvedDocs?.some(a => a.document_id === doc.id));
+
+          if (!allDocsApproved) {
+            setView('awaitingApproval');
+          } else if (!member.trial_used || new Date(member.membership_expiry || 0) > new Date()) {
+            setView('booking');
+          } else {
+            setView('paymentRequired');
+          }
+
           authResolved.current = true;
           setAuthLoading(false);
           return;
@@ -214,6 +230,28 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       googleCalendarEnabled: false,
       trialUsed: false,
     });
+  };
+
+  const checkAccessStatus = async (): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const [{ data: requiredDocs }, { data: approvedDocs }, { data: member }] = await Promise.all([
+      supabase.from('documents').select('id').eq('required', true),
+      supabase.from('member_documents').select('document_id').eq('member_id', user.id).eq('status', 'approved'),
+      supabase.from('members').select('trial_used, membership_expiry').eq('id', user.id).single(),
+    ]);
+
+    const allDocsApproved = !requiredDocs?.length ||
+      requiredDocs.every(doc => approvedDocs?.some(a => a.document_id === doc.id));
+
+    if (!allDocsApproved) {
+      setView('awaitingApproval');
+    } else if (!member?.trial_used || new Date(member?.membership_expiry || 0) > new Date()) {
+      setView('booking');
+    } else {
+      setView('paymentRequired');
+    }
   };
 
   const logout = async (): Promise<void> => {
@@ -425,6 +463,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       handleTrainerLogin,
       handleMagicLink,
       handleCreateMemberProfile,
+      checkAccessStatus,
       handleAddClass,
       handleDeleteClass,
       handleAddMember,
