@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { useAppState } from '../../state/AppState';
 
 const ResetPassword: React.FC = () => {
-  const { setView } = useAppState();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +25,8 @@ const ResetPassword: React.FC = () => {
       setError(updateError.message);
     } else {
       setDone(true);
-      setTimeout(() => setView('login'), 2000);
+      // Sign out so SIGNED_OUT handler clears recovery state and routes to login
+      setTimeout(() => supabase.auth.signOut(), 1500);
     }
     setLoading(false);
   };

@@ -114,6 +114,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // ── Auth ─────────────────────────────────────────────────────────
   const authResolved = useRef(false);
+  const inPasswordRecovery = useRef(false);
 
   useEffect(() => {
     const handleAuthUser = async (user: User) => {
@@ -180,14 +181,18 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
+        inPasswordRecovery.current = true;
         authResolved.current = true;
         setView('resetPassword');
         setAuthLoading(false);
+      } else if (inPasswordRecovery.current) {
+        // Ignore SIGNED_IN / TOKEN_REFRESHED that fire alongside PASSWORD_RECOVERY
       } else if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         handleAuthUser(session.user);
       } else if (event === 'INITIAL_SESSION' && !session) {
         setAuthLoading(false);
       } else if (event === 'SIGNED_OUT') {
+        inPasswordRecovery.current = false;
         authResolved.current = false;
         setCurrentUser(null);
         setView('login');
