@@ -46,6 +46,7 @@ interface AppStateContextType {
   getAvailableSpots: (c: Class) => number;
   isSignedUp: (classId: number) => boolean;
   handleTrainerLogin: (email: string, password: string) => Promise<void>;
+  handleForgotPassword: (email: string) => Promise<void>;
   handleMagicLink: (email: string) => Promise<void>;
   handleCreateMemberProfile: (name: string) => Promise<void>;
   checkAccessStatus: () => Promise<void>;
@@ -178,7 +179,11 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+      if (event === 'PASSWORD_RECOVERY') {
+        authResolved.current = true;
+        setView('resetPassword');
+        setAuthLoading(false);
+      } else if (session?.user && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         handleAuthUser(session.user);
       } else if (event === 'INITIAL_SESSION' && !session) {
         setAuthLoading(false);
@@ -196,6 +201,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const handleTrainerLogin = async (email: string, password: string): Promise<void> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const handleForgotPassword = async (email: string): Promise<void> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
     if (error) throw error;
   };
 
@@ -461,6 +473,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       getAvailableSpots,
       isSignedUp,
       handleTrainerLogin,
+      handleForgotPassword,
       handleMagicLink,
       handleCreateMemberProfile,
       checkAccessStatus,

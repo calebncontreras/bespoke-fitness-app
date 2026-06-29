@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useAppState } from '../../state/AppState';
 
 const Login: React.FC = () => {
-  const { handleTrainerLogin, handleMagicLink, magicLinkSent } = useAppState();
+  const { handleTrainerLogin, handleForgotPassword, handleMagicLink, magicLinkSent } = useAppState();
 
   const [trainerEmail, setTrainerEmail] = useState('');
   const [trainerPassword, setTrainerPassword] = useState('');
   const [trainerError, setTrainerError] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   const [clientEmail, setClientEmail] = useState('');
   const [clientError, setClientError] = useState('');
@@ -21,6 +24,19 @@ const Login: React.FC = () => {
       await handleTrainerLogin(trainerEmail, trainerPassword);
     } catch {
       setTrainerError('Invalid email or password.');
+    }
+    setLoading(false);
+  };
+
+  const onForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await handleForgotPassword(forgotEmail);
+      setForgotSent(true);
+    } catch {
+      // show sent anyway to avoid email enumeration
+      setForgotSent(true);
     }
     setLoading(false);
   };
@@ -66,32 +82,68 @@ const Login: React.FC = () => {
         {/* Trainer */}
         <div>
           <p className="text-xs font-light uppercase tracking-widest text-gray-400 mb-4">Trainer</p>
-          <form onSubmit={onTrainerSubmit} className="space-y-3">
-            <input
-              type="email"
-              value={trainerEmail}
-              onChange={e => setTrainerEmail(e.target.value)}
-              placeholder="Email"
-              required
-              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
-            />
-            <input
-              type="password"
-              value={trainerPassword}
-              onChange={e => setTrainerPassword(e.target.value)}
-              placeholder="Password"
-              required
-              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
-            />
-            {trainerError && <p className="text-xs text-red-500 font-light">{trainerError}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-300 transition"
-            >
-              Sign In
-            </button>
-          </form>
+          {forgotMode ? (
+            forgotSent ? (
+              <div className="space-y-3">
+                <p className="text-xs font-light text-gray-500">Check your email for a password reset link.</p>
+                <button onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); }} className="text-xs font-light text-gray-400 hover:text-gray-700 transition">
+                  Back to sign in
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={onForgotPassword} className="space-y-3">
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  placeholder="Your email"
+                  required
+                  autoFocus
+                  className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !forgotEmail}
+                  className="w-full py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-300 transition"
+                >
+                  {loading ? 'Sending...' : 'Send reset link'}
+                </button>
+                <button type="button" onClick={() => setForgotMode(false)} className="text-xs font-light text-gray-400 hover:text-gray-700 transition">
+                  Back to sign in
+                </button>
+              </form>
+            )
+          ) : (
+            <form onSubmit={onTrainerSubmit} className="space-y-3">
+              <input
+                type="email"
+                value={trainerEmail}
+                onChange={e => setTrainerEmail(e.target.value)}
+                placeholder="Email"
+                required
+                className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+              />
+              <input
+                type="password"
+                value={trainerPassword}
+                onChange={e => setTrainerPassword(e.target.value)}
+                placeholder="Password"
+                required
+                className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+              />
+              {trainerError && <p className="text-xs text-red-500 font-light">{trainerError}</p>}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-300 transition"
+              >
+                Sign In
+              </button>
+              <button type="button" onClick={() => setForgotMode(true)} className="text-xs font-light text-gray-400 hover:text-gray-700 transition">
+                Forgot password?
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="border-t border-gray-100" />

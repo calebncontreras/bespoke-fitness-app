@@ -5,6 +5,7 @@ import Booking from '../components/scheduler/Booking';
 import MemberOnboarding from '../components/scheduler/MemberOnboarding';
 import AwaitingApproval from '../components/scheduler/AwaitingApproval';
 import PaymentRequired from '../components/scheduler/PaymentRequired';
+import ResetPassword from '../components/scheduler/ResetPassword';
 import TrainerDashboard from '../components/scheduler/Admin/AdminDashboard';
 
 const Scheduler: React.FC = () => {
@@ -22,6 +23,7 @@ const Scheduler: React.FC = () => {
   if (view === 'onboarding') return <MemberOnboarding />;
   if (view === 'awaitingApproval') return <AwaitingApproval />;
   if (view === 'paymentRequired') return <PaymentRequired />;
+  if (view === 'resetPassword') return <ResetPassword />;
   if (view === 'booking') return <Booking />;
   if (view === 'trainerDashboard') return <TrainerDashboard />;
   return null;
