@@ -15,20 +15,22 @@ const NAV: { id: Tool; label: string }[] = [
 ];
 
 const AppInner: React.FC = () => {
-  const { currentUser } = useAppState();
+  const { currentUser, view } = useAppState();
   const [tool, setTool] = useState<Tool>('scheduler');
 
   useEffect(() => {
     if (!currentUser) setTool('scheduler');
   }, [currentUser]);
 
-  const isMemberUser = !!currentUser && !('role' in currentUser);
+  const isTrainer = !!currentUser && 'role' in currentUser;
+  const isMemberUser = !!currentUser && !isTrainer;
+  const hasFullAccess = isTrainer || view === 'booking';
 
   const content = (
     <>
       {tool === 'scheduler' && <Scheduler />}
-      {tool === 'schedule' && <ScheduleView />}
-      {tool === 'payments' && <Payments />}
+      {tool === 'schedule' && hasFullAccess && <ScheduleView />}
+      {tool === 'payments' && hasFullAccess && <Payments />}
     </>
   );
 
@@ -36,7 +38,7 @@ const AppInner: React.FC = () => {
     <div className="h-screen flex flex-col bg-white">
       <div className="border-b border-gray-100 px-6 py-2.5 flex items-center gap-4 shrink-0">
         <span className="text-xs font-light tracking-widest text-gray-300 uppercase">Bespoke</span>
-        {currentUser && (
+        {hasFullAccess && (
           <div className="flex gap-1">
             {NAV.map(({ id, label }) => (
               <button
