@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isExpiryValid, countClassesBookedThisWeek, classesRemaining, trialDaysRemaining } from './membership';
+import { isExpiryValid, countClassesBookedThisWeek, classesRemaining, trialDaysRemaining, UNLIMITED_CLASSES_PER_WEEK } from './membership';
 
 describe('isExpiryValid', () => {
   const now = new Date('2026-06-15T12:00:00Z');
@@ -30,6 +30,14 @@ describe('classesRemaining', () => {
   it('subtracts booked classes from the weekly allowance when active', () => {
     expect(classesRemaining('2026-12-31', 3, 1, now)).toBe(2);
     expect(classesRemaining('2026-12-31', 2, 2, now)).toBe(0);
+  });
+
+  it('is Infinity for the unlimited tier when active', () => {
+    expect(classesRemaining('2026-12-31', UNLIMITED_CLASSES_PER_WEEK, 5, now)).toBe(Infinity);
+  });
+
+  it('is still 0 for the unlimited tier when expired', () => {
+    expect(classesRemaining('2026-01-01', UNLIMITED_CLASSES_PER_WEEK, 0, now)).toBe(0);
   });
 });
 

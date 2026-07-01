@@ -237,7 +237,9 @@ const Booking: React.FC = () => {
             </div>
             <div className="p-3 bg-gray-50 border border-gray-200 text-center">
               <div className="text-xs text-gray-600 font-light mb-1">Classes Left This Week</div>
-              <div className="text-2xl font-light text-gray-900">{Math.max(0, getClassesRemaining())}</div>
+              <div className="text-2xl font-light text-gray-900">
+                {Number.isFinite(getClassesRemaining()) ? Math.max(0, getClassesRemaining()) : 'Unlimited'}
+              </div>
             </div>
             {getTrialDaysRemaining() !== null && (
               <div className="p-3 bg-gray-50 border border-gray-200 text-center">

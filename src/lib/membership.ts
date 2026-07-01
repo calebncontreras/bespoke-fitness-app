@@ -35,9 +35,13 @@ export function countClassesBookedThisWeek(
   }).length;
 }
 
+/** Sentinel classes_per_week value that means "unlimited". */
+export const UNLIMITED_CLASSES_PER_WEEK = 999;
+
 /**
  * Free weekly classes remaining. An expired/unset membership grants none
- * (class credits are a separate currency handled at signup).
+ * (class credits are a separate currency handled at signup). The unlimited
+ * tier returns Infinity so callers can render it as "Unlimited".
  */
 export function classesRemaining(
   membershipExpiry: string | null | undefined,
@@ -47,6 +51,7 @@ export function classesRemaining(
 ): number {
   if (!isExpiryValid(membershipExpiry, now)) return 0;
   if (classesPerWeek == null) return 0;
+  if (classesPerWeek >= UNLIMITED_CLASSES_PER_WEEK) return Infinity;
   return classesPerWeek - bookedThisWeek;
 }
 
