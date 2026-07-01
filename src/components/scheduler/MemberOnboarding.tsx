@@ -7,6 +7,7 @@ type Step = 'name' | 'documents' | 'pending';
 const MemberOnboarding: React.FC = () => {
   const { handleCreateMemberProfile, currentUser, logout } = useAppState();
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<Step>('name');
 
@@ -16,8 +17,9 @@ const MemberOnboarding: React.FC = () => {
   const handleSubmitName = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (password && password.length < 8) return;
     setSaving(true);
-    await handleCreateMemberProfile(name.trim());
+    await handleCreateMemberProfile(name.trim(), password || undefined);
     setStep('documents');
     setSaving(false);
   };
@@ -40,9 +42,22 @@ const MemberOnboarding: React.FC = () => {
               autoFocus
               className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
             />
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Set a password (optional)"
+              className="w-full border border-gray-200 px-3 py-2 text-sm font-light focus:outline-none focus:border-gray-400"
+            />
+            {password && password.length < 8 && (
+              <p className="text-xs text-red-500 font-light">Password must be at least 8 characters.</p>
+            )}
+            <p className="text-[11px] font-light text-gray-300">
+              Optional — set a password to sign in without an email link next time.
+            </p>
             <button
               type="submit"
-              disabled={!name.trim() || saving}
+              disabled={!name.trim() || saving || (!!password && password.length < 8)}
               className="w-full py-2 bg-gray-900 text-white text-sm font-light hover:bg-gray-800 disabled:bg-gray-300 transition"
             >
               {saving ? 'Saving...' : 'Continue'}

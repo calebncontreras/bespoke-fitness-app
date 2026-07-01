@@ -1,3 +1,13 @@
+export interface MembershipHistoryEntry {
+  type: 'membership' | 'pack';
+  productId: string;
+  productName: string;
+  amount: number;
+  date: string;
+  newExpiry?: string;
+  creditsAdded?: number;
+}
+
 export interface Member {
   id: string;
   name: string;
@@ -7,6 +17,27 @@ export interface Member {
   classCredits: number;
   googleCalendarEnabled: boolean;
   trialUsed?: boolean;
+  membershipHistory?: MembershipHistoryEntry[];
+}
+
+export interface SessionPack {
+  id: number;
+  name: string;
+  price: number;          // pack total (auto-calculated), used at checkout
+  credits: number;        // number of sessions
+  pricePerSession?: number;
+  sessionDuration?: number; // minutes
+  salesTax?: number | null; // percentage rate; null = none applied
+}
+
+export interface NewSessionPackForm {
+  name: string;
+  credits: string;          // number of sessions
+  pricePerSession: string;
+  sessionDuration: string;  // '30' | '60' | '90' | 'custom'
+  customDuration: string;
+  addSalesTax: boolean;
+  salesTax: string;         // percentage
 }
 
 export interface TrainerUser {

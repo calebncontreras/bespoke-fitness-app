@@ -67,6 +67,25 @@ const Payments: React.FC = () => {
         </p>
       </div>
 
+      {freshMember.membershipHistory && freshMember.membershipHistory.length > 0 && (
+        <div>
+          <h2 className="text-lg font-light text-gray-900 mb-4">Membership History</h2>
+          <div className="space-y-2">
+            {freshMember.membershipHistory.map((h, i) => (
+              <div key={i} className="p-4 border border-gray-200 flex justify-between items-start">
+                <div>
+                  <div className="font-light text-gray-900 text-sm">{h.productName}</div>
+                  <div className="text-xs text-gray-500 font-light mt-0.5">
+                    {h.date} · {h.type === 'membership' ? `renews ${h.newExpiry}` : `+${h.creditsAdded} credits`}
+                  </div>
+                </div>
+                <div className="text-gray-900 font-light text-sm">${h.amount.toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-lg font-light text-gray-900 mb-4">Transaction History</h2>
         <PaymentHistory filterMemberId={freshMember.id} />

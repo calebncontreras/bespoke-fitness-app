@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronRight, LogOut } from 'lucide-react';
 import { useAppState } from '../../state/AppState';
+import ClientDocuments from '../documents/ClientDocuments';
 import type { Member } from '../../types';
 
 const SESSION_DURATIONS = [30, 60];
@@ -140,7 +141,7 @@ const Booking: React.FC = () => {
     getAvailableSpots, isSignedUp, getClassesRemaining, getTrialDaysRemaining,
     handleSignUp, handleCancel, logout,
   } = useAppState();
-  const [bookingTab, setBookingTab] = useState<'classes' | '1on1'>('classes');
+  const [bookingTab, setBookingTab] = useState<'classes' | '1on1' | 'documents'>('classes');
 
   const member = currentUser as Member;
 
@@ -171,7 +172,7 @@ const Booking: React.FC = () => {
         </div>
 
         <div className="flex border-b border-gray-200">
-          {([['classes', 'Group Classes'], ['1on1', '1-on-1 Sessions']] as const).map(([id, label]) => (
+          {([['classes', 'Group Classes'], ['1on1', '1-on-1 Sessions'], ['documents', 'Documents']] as const).map(([id, label]) => (
             <button
               key={id}
               onClick={() => setBookingTab(id)}
@@ -183,6 +184,13 @@ const Booking: React.FC = () => {
         </div>
 
         {bookingTab === '1on1' && <PersonalBookingPanel />}
+
+        {bookingTab === 'documents' && (
+          <div className="p-6 max-w-2xl">
+            <h3 className="text-sm font-light text-gray-600 uppercase tracking-widest mb-4">My Documents</h3>
+            <ClientDocuments memberId={member.id} memberName={member.name} />
+          </div>
+        )}
 
         {bookingTab === 'classes' && <><div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
           {classes.map(c => (

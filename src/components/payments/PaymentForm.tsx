@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppState } from '../../state/AppState';
 import PaymentMethod from './PaymentMethod';
 import type { PaymentMethodType } from '../../types';
@@ -9,38 +9,35 @@ interface PaymentFormProps {
 }
 
 const PaymentForm: React.FC<PaymentFormProps> = ({ defaultMemberId, onSuccess }) => {
-  const { members, membershipTypes, handleRecordPayment } = useAppState();
+  const { members, membershipTypes, sessionPacks, handleRecordPayment } = useAppState();
 
   const initialMemberId = defaultMemberId ?? members[0]?.id ?? '';
   const [memberId, setMemberId] = useState<string>(initialMemberId);
-  const [amount, setAmount] = useState('');
+  // Encoded product selection: "membership:<id>" or "pack:<id>"
+  const [product, setProduct] = useState('');
   const [method, setMethod] = useState<PaymentMethodType | null>(null);
   const [reference, setReference] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const member = members.find(m => m.id === memberId);
-    if (member) {
-      const mt = membershipTypes.find(t => t.id === member.membershipType);
-      if (mt) setAmount(String(mt.price));
-    }
-  }, [memberId, members, membershipTypes]);
+  // Auto-calculated price from the selected product.
+  const [kind, rawId] = product.split(':');
+  const selectedTier = kind === 'membership' ? membershipTypes.find(t => t.id === rawId) : undefined;
+  const selectedPack = kind === 'pack' ? sessionPacks.find(p => String(p.id) === rawId) : undefined;
+  const amount = selectedTier?.price ?? selectedPack?.price ?? null;
 
   const handleSubmit = () => {
-    if (!memberId || !amount || !method || !date) {
-      setError('Please fill in all required fields.');
+    if (!memberId || !product || !method || !date) {
+      setError('Please choose a member, a product, a payment method, and a date.');
       return;
     }
-    handleRecordPayment(memberId, parseFloat(amount), method, reference, date);
+    handleRecordPayment(memberId, kind as 'membership' | 'pack', rawId, method, reference, date);
+    setProduct('');
     setReference('');
     setMethod(null);
     setError('');
     onSuccess?.();
   };
-
-  const member = members.find(m => m.id === memberId);
-  const mt = member ? membershipTypes.find(t => t.id === member.membershipType) : null;
 
   return (
     <div className="space-y-5">
@@ -57,22 +54,42 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ defaultMemberId, onSuccess })
             <option key={m.id} value={m.id}>{m.name}</option>
           ))}
         </select>
-        {mt && (
-          <p className="mt-1 text-xs text-gray-400 font-light">{mt.name} · ${mt.price}/mo</p>
-        )}
       </div>
 
       <div>
-        <label className="block text-xs font-light text-gray-400 mb-1.5 uppercase tracking-wide">Amount ($)</label>
-        <input
-          type="number"
-          value={amount}
-          onChange={e => setAmount(e.target.value)}
-          min="0"
-          step="0.01"
+        <label className="block text-xs font-light text-gray-400 mb-1.5 uppercase tracking-wide">Membership or Session Pack</label>
+        <select
+          value={product}
+          onChange={e => setProduct(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 font-light text-sm"
-          placeholder="0.00"
-        />
+        >
+          <option value="">Select a product…</option>
+          {membershipTypes.length > 0 && (
+            <optgroup label="Memberships">
+              {membershipTypes.map(t => (
+                <option key={`membership:${t.id}`} value={`membership:${t.id}`}>
+                  {t.name} — ${t.price}{t.durationDays ? ` / ${t.durationDays} days` : ' / mo'}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {sessionPacks.length > 0 && (
+            <optgroup label="Session Packs">
+              {sessionPacks.map(p => (
+                <option key={`pack:${p.id}`} value={`pack:${p.id}`}>
+                  {p.name} — {p.credits} credits — ${p.price}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-xs font-light text-gray-400 mb-1.5 uppercase tracking-wide">Total</label>
+        <div className="w-full px-4 py-2 border border-gray-200 bg-gray-50 font-light text-sm text-gray-900">
+          {amount != null ? `$${amount.toFixed(2)}` : '—'}
+        </div>
       </div>
 
       <div>
@@ -105,9 +122,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ defaultMemberId, onSuccess })
 
       <button
         onClick={handleSubmit}
-        className="w-full px-4 py-2.5 bg-gray-900 text-white font-light hover:bg-gray-800 transition text-sm"
+        disabled={amount == null}
+        className="w-full px-4 py-2.5 bg-gray-900 text-white font-light hover:bg-gray-800 disabled:bg-gray-300 transition text-sm"
       >
-        Record Payment
+        {amount != null ? `Record Payment · $${amount.toFixed(2)}` : 'Record Payment'}
       </button>
     </div>
   );

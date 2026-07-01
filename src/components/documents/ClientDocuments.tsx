@@ -11,6 +11,7 @@ interface DocTemplate {
 interface Submission {
   document_id: number;
   status: string;
+  file_path: string | null;
 }
 
 interface ClientDocumentsProps {
@@ -28,7 +29,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ memberId, memberName,
   const load = async () => {
     const [{ data: docs }, { data: subs }] = await Promise.all([
       supabase.from('documents').select('*').eq('required', true).order('created_at'),
-      supabase.from('member_documents').select('document_id, status').eq('member_id', memberId),
+      supabase.from('member_documents').select('document_id, status, file_path').eq('member_id', memberId),
     ]);
     setDocuments(docs ?? []);
     setSubmissions(subs ?? []);
@@ -52,6 +53,13 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ memberId, memberName,
       a.download = `${docName}.pdf`;
       a.click();
     }
+  };
+
+  // Open the file in a new tab for in-browser viewing (no download). The
+  // browser renders the PDF inline from the signed URL.
+  const handleView = async (bucket: string, filePath: string) => {
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleUpload = async (doc: DocTemplate, file: File) => {
@@ -113,10 +121,26 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ memberId, memberName,
             <div className="flex items-center gap-2 flex-wrap">
               {doc.file_path && (
                 <button
+                  onClick={() => handleView('documents', doc.file_path!)}
+                  className="text-xs font-light text-gray-700 border border-gray-300 px-3 py-1.5 hover:bg-gray-50 transition"
+                >
+                  View template
+                </button>
+              )}
+              {doc.file_path && (
+                <button
                   onClick={() => handleDownload(doc.file_path!, doc.name)}
                   className="text-xs font-light text-gray-500 border border-gray-200 px-3 py-1.5 hover:bg-gray-50 transition"
                 >
                   Download template
+                </button>
+              )}
+              {submission?.file_path && (
+                <button
+                  onClick={() => handleView('signed-documents', submission.file_path!)}
+                  className="text-xs font-light text-gray-700 border border-gray-300 px-3 py-1.5 hover:bg-gray-50 transition"
+                >
+                  View my signed copy
                 </button>
               )}
               {(!submission || submission.status === 'rejected') && (
