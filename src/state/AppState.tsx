@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { calcSessionPackTotal, calcNewMembershipExpiry } from '../lib/pricing';
+import { isExpiryValid, countClassesBookedThisWeek, classesRemaining, trialDaysRemaining } from '../lib/membership';
+import { allDocsApproved, resolveAccessView } from '../lib/access';
 import type {
   Member,
   CurrentUser,
@@ -206,18 +209,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           if (inPasswordRecovery.current) { setAuthLoading(false); return; }
 
-          const allDocsApproved = !requiredDocs?.length ||
-            requiredDocs.every(doc => approvedDocs?.some(a => a.document_id === doc.id));
-
-          if (!allDocsApproved) {
-            setView('awaitingApproval');
-          } else if (!member.trial_used || new Date(member.membership_expiry || 0) > new Date() || (member.class_credits ?? 0) > 0) {
-            // Active membership, unused trial, OR remaining class credits all
-            // grant booking access — credits shouldn't be stranded by a lapse.
-            setView('booking');
-          } else {
-            setView('paymentRequired');
-          }
+          setView(resolveAccessView({
+            docsApproved: allDocsApproved(
+              (requiredDocs ?? []).map(d => d.id),
+              (approvedDocs ?? []).map(a => a.document_id),
+            ),
+            trialUsed: !!member.trial_used,
+            membershipExpiry: member.membership_expiry,
+            classCredits: member.class_credits ?? 0,
+          }));
 
           authResolved.current = true;
           setAuthLoading(false);
@@ -378,16 +378,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       supabase.from('members').select('trial_used, membership_expiry, class_credits').eq('id', user.id).single(),
     ]);
 
-    const allDocsApproved = !requiredDocs?.length ||
-      requiredDocs.every(doc => approvedDocs?.some(a => a.document_id === doc.id));
-
-    if (!allDocsApproved) {
-      setView('awaitingApproval');
-    } else if (!member?.trial_used || new Date(member?.membership_expiry || 0) > new Date() || (member?.class_credits ?? 0) > 0) {
-      setView('booking');
-    } else {
-      setView('paymentRequired');
-    }
+    setView(resolveAccessView({
+      docsApproved: allDocsApproved(
+        (requiredDocs ?? []).map(d => d.id),
+        (approvedDocs ?? []).map(a => a.document_id),
+      ),
+      trialUsed: !!member?.trial_used,
+      membershipExpiry: member?.membership_expiry,
+      classCredits: member?.class_credits ?? 0,
+    }));
   };
 
   const logout = async (): Promise<void> => {
@@ -398,51 +397,19 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const isMembershipValid = (memberId: string): boolean => {
     const member = members.find(m => m.id === memberId);
     if (!member) return false;
-    return new Date(member.membershipExpiry) > new Date();
-  };
-
-  const getDayOfWeek = (dayName: string): number => {
-    const dayMap: Record<string, number> = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 0 };
-    return dayMap[dayName];
-  };
-
-  const getNextClassDate = (dayName: string): Date => {
-    const today = new Date();
-    const targetDay = getDayOfWeek(dayName);
-    const daysAhead = targetDay - today.getDay();
-    const date = new Date(today);
-    date.setDate(today.getDate() + (daysAhead > 0 ? daysAhead : daysAhead + 7));
-    return date;
-  };
-
-  const getClassesBookedThisWeek = (): number => {
-    if (!isMember(currentUser)) return 0;
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1);
-    return classes.filter(c => {
-      if (!c.signups.includes(currentUser.id)) return false;
-      const classDate = getNextClassDate(c.day);
-      return classDate >= startOfWeek && classDate < new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
-    }).length;
+    return isExpiryValid(member.membershipExpiry);
   };
 
   const getClassesRemaining = (): number => {
     if (!isMember(currentUser)) return 0;
-    // An expired or unset membership grants no free weekly classes. Class
-    // credits are a separate prepaid currency handled directly in handleSignUp,
-    // so members can still book with credits even when their membership lapses.
-    const expiry = currentUser.membershipExpiry;
-    if (!expiry || new Date(expiry) <= new Date()) return 0;
     const memberType = membershipTypes.find(m => m.id === currentUser.membershipType);
-    if (!memberType) return 0;
-    return memberType.classesPerWeek - getClassesBookedThisWeek();
+    const booked = countClassesBookedThisWeek(classes, currentUser.id);
+    return classesRemaining(currentUser.membershipExpiry, memberType?.classesPerWeek ?? null, booked);
   };
 
   const getTrialDaysRemaining = (): number | null => {
-    if (!isMember(currentUser) || currentUser.membershipType !== 'trial') return null;
-    const daysLeft = Math.ceil((new Date(currentUser.membershipExpiry).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    return daysLeft > 0 ? daysLeft : 0;
+    if (!isMember(currentUser)) return null;
+    return trialDaysRemaining(currentUser.membershipType, currentUser.membershipExpiry);
   };
 
   const getAvailableSpots = (c: Class): number => c.capacity - c.signups.length;
@@ -510,9 +477,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ? (parseInt(newSessionPack.customDuration) || 0)
       : parseInt(newSessionPack.sessionDuration);
     const taxRate = newSessionPack.addSalesTax ? (parseFloat(newSessionPack.salesTax) || 0) : null;
-    const subtotal = sessions * perSession;
-    const total = taxRate != null ? subtotal * (1 + taxRate / 100) : subtotal;
-    const price = Math.round(total * 100) / 100;
+    const price = calcSessionPackTotal(sessions, perSession, taxRate);
 
     const { data, error } = await supabase.from('session_packs').insert({
       name: newSessionPack.name,
@@ -630,13 +595,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       paymentType = 'membership';
       membershipTypeId = tier.id;
 
-      const base = new Date(Math.max(
-        new Date(date + 'T12:00:00').getTime(),
-        new Date((member.membershipExpiry || date) + 'T12:00:00').getTime()
-      ));
-      if (tier.durationDays) base.setDate(base.getDate() + tier.durationDays);
-      else base.setMonth(base.getMonth() + 1);
-      const newExpiry = base.toISOString().split('T')[0];
+      const newExpiry = calcNewMembershipExpiry(date, member.membershipExpiry, tier.durationDays);
 
       memberUpdate.membership_type = tier.id;
       memberUpdate.membership_expiry = newExpiry;

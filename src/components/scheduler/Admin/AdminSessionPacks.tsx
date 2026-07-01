@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAppState } from '../../../state/AppState';
+import { calcSessionPackTotal } from '../../../lib/pricing';
 
 const DURATION_OPTIONS = ['30', '60', '90', 'custom'] as const;
 
@@ -9,9 +10,8 @@ const AdminSessionPacks: React.FC = () => {
 
   const sessions = parseInt(newSessionPack.credits) || 0;
   const perSession = parseFloat(newSessionPack.pricePerSession) || 0;
-  const subtotal = sessions * perSession;
   const taxRate = newSessionPack.addSalesTax ? (parseFloat(newSessionPack.salesTax) || 0) : 0;
-  const total = subtotal * (1 + taxRate / 100);
+  const total = calcSessionPackTotal(sessions, perSession, newSessionPack.addSalesTax ? taxRate : null);
 
   const durationLabel = (mins?: number) => mins ? `${mins} min` : '—';
 
